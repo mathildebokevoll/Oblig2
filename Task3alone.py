@@ -105,7 +105,7 @@ def server(input, output, session):
                 if avaiable_bike_checkout is None:
                     return f"No available bikes at {input.selected_station()}."
                 
-                selected_bike_id_checkout= avaiable_bike_checkout[0] 
+                selected_bike_id_checkout = avaiable_bike_checkout[0] 
                 selected_bike_name_checkout = avaiable_bike_checkout[1] 
                 
                 # 3a) Update the database accordingly.
@@ -115,6 +115,21 @@ def server(input, output, session):
                     SET Current_Status_Bike = 'Active'
                     WHERE ID_Bike = ? 
                     """, (selected_bike_id_checkout,)
+                )
+
+                userId = cur.execute(
+                    """
+                    SELECT ID_User
+                    FROM User
+                    WHERE Name_User = ?
+                    """, (input.selected_user(),)
+                ).fetchone()
+                
+                cur.execute(
+                    """
+                    INSERT INTO Trip (ID_User, ID_Bike, Start_Time_Trip, End_Time_Trip, ID_Start_Station, ID_End_Station)
+                    VALUES (?, ?, CURRENT_TIMESTAMP, NULL, ?, NULL)
+                    """, (userId[0], selected_bike_id_checkout, input.selected_station())
                 )
                 con.commit()
                 
@@ -126,6 +141,8 @@ def server(input, output, session):
         "How do I select 1 bike from the dataset and use it in the other query?"
         Answer: You need to use cursor.execute(...).fetchone() to retrieve one available bike, and then store it in a variable.
         """
+
+        last_dropped_bike_id = reactive.Value(None) #
         
         # 3b) Create a card ”DROPOFF” where a selected user at a selected station returns the bike that they have currently checked out. 
 
@@ -150,7 +167,6 @@ def server(input, output, session):
                 selected_bike_id_dropoff = active_bike_dropoff[0]
                 selected_bike_name_dropoff = active_bike_dropoff[1]
                 
-
                 # 3b) Update the database accordingly.
                 cur.execute(
                     """
@@ -162,7 +178,44 @@ def server(input, output, session):
                     """, (input.selected_station_dropoff(), selected_bike_id_dropoff ,)
                 )
 
+                userId = cur.execute(
+                    """
+                    SELECT ID_User
+                    FROM User
+                    WHERE Name_User = ?
+                    """, (input.selected_user(),)
+                ).fetchone()
+
+                tripId = cur.execute(
+                    """
+                    SELECT ID_Trip
+                    FROM Trip
+                    WHERE ID_User = ?
+                    ORDER BY ID_Trip DESC
+                    LIMIT 1;
+                    """ ,(userId[0], )
+                ).fetchone()
+
+                station_id = cur.execute(
+                    """
+                    SELECT ID_Station
+                    FROM Station
+                    WHERE Name_Station = ?
+                    """, (input.selected_station_dropoff(), )
+                ).fetchone()
+
+                cur.execute(
+                    """
+                    UPDATE Trip
+                    SET End_Time_Trip = CURRENT_TIMESTAMP,
+                    ID_End_Station = ?
+                    WHERE ID_Trip = ?;
+                    """, (station_id[0], tripId[0])
+                )
+
                 con.commit()
+
+                last_dropped_bike_id.set(selected_bike_id_dropoff) #
                 
             return f"{input.selected_user_dropoff()} has dropped off {selected_bike_name_dropoff} (ID {selected_bike_id_dropoff }) at {input.selected_station_dropoff()}"
                 
@@ -176,50 +229,62 @@ def server(input, output, session):
             with sqlite3.connect("bysykkel.db") as con:
                 cur = con.cursor()
 
-                bike_complaint = cur.execute(
-                    """
-                    SELECT ID_Bike
-                    FROM Bike
-                    WHERE Current_Status_Bike = 'Parked'
-                    ORDER BY ID_Bike DESC
-                    LIMIT 1;
-                    """
-                ).fetchone()
+                # bike_complaint = cur.execute(
+                #     """
+                #     SELECT ID_Bike
+                #     FROM Bike
+                #     WHERE Current_Status_Bike = 'Parked'
+                #     ORDER BY ID_Bike DESC
+                #     LIMIT 1;
+                #     """
+                # ).fetchone()
 
-                if bike_complaint is None:
-                    return "Could not find a recently dropped off bike."
+                bike_id_complaint = last_dropped_bike_id() #
+                if bike_id_complaint is None:   #
+                    return "Could not find a recently dropped off bike."    #
 
-                bike_id_complaint = bike_complaint[0]
-                complaint = input.selectcomplaint()
+                # bike_id_complaint = bike_complaint[0]
+                # complaint = input.selectcomplaint()
+                with sqlite3.connect("bysykkel.db") as con: #
+                    cur = con.cursor() #
+                    complaint = input.selectcomplaint() #
 
-                if complaint != "No":
-                    cur.execute(
-                        """
-                        INSERT INTO Maintance (ID_Bike, Complaint_Type)
-                        VALUES (?, ?)
-                        """, (bike_id_complaint, complaint)
-                    )
-                    con.commit()
-                    return f"Complaint '{complaint}' registered for bike ID {bike_id_complaint}."
-                else:
-                    return "No complaint registered."
+                    if complaint != "No":
+                        cur.execute(
+                            """
+                            INSERT INTO Maintance (ID_Bike, Complaint_Type)
+                            VALUES (?, ?)
+                            """, (bike_id_complaint, complaint)
+                        ) 
+                        
+                        con.commit()
+                        return f"Complaint '{complaint}' registered for bike ID {bike_id_complaint}."
+                    else:
+                        return "No complaint registered."
                 
 
-           # """
-           # How ChatGPT was used:
-           # Prompt: I asked chat.gpt how to connect the complaint function to the bike that had just been dropped off.
-           # Answer:
-           # The lines I got from ChatGPT for this task is
-           # """
+        """
+        How ChatGPT was used:
+        Prompt: I asked chat.gpt how to connect the complaint function to the bike that had just been dropped off.
+        Answer: You need to remember the ID of the bike that was dropped off during dropoff, and then use that ID inside the complaint function.
+        In Shiny for Python, the way you store temporary information between different clicks is with a reactive.Value
+           - Inside server(), add: last_dropped_bike_id = reactive.Value(None)
+           - In output_dropoff(), after committing, add: last_dropped_bike_id.set(selected_bike_id_dropoff)
+           - In output_complaint(), use last_dropped_bike_id() instead of querying the database for a random parked bike.
+        The parts with # in front is what I had from before, and the parts with # after is what I got from ChatGPT   
+        
+        Last minute comment: when I fixed and updated my tables, such as the same bike that was checked out got dropped off, 
+        this teqnuice for updating the complaint table does not work anymore, and I do not have the time to priority to fix it,
+        but I hope my awareness of the problem/technique counts for the overall assessment.
 
-# What I am missing in taskk 3 now:
-# The bike that is checkes out is not connected to the user
-# so it is not neceseruly that bike the use droppes off
-# and the bike that has been dropped off is not connected to the one getting complaints
-# This needs to be fixed by updating the whole databse i.e Trip table in a)
-# and use this tabel for b and c
 
-#^ gjør 4 først og så kommer jeg tilbake til dette!
+        Morover, In order to utdate the database, I had to make the following changes in the table Trip:
+            - Remove NOT NULL constraint from End_Time_Trip and ID_End_Station 
+            - ID_Trip AUTOINCREMENT instead of UNIQUE (such that the ID automaticly continues to update)
+            - Change from INT to INTEGER, because AUTOINCREMENT only works on INTEGER
+            - Delete the data that was already in Trip
+        """
+        
 
     
 app = App(app_ui, server)

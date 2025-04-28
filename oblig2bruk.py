@@ -23,10 +23,14 @@ I have continously made sure I understand the code or answers I got from ChatGPT
 How and where ChatGPT was used, is written continously in the code.
 
 Reflection:
-In the code I have made I used the bysykkel.db database file (where I imported data from the bysykkel.csv file provided) I made in Obligatory Assignment 1, to test my code in this assignmengt.
+In the code I have made I used the bysykkel.db database file (where I imported data from the bysykkel.csv file provided) I made in Obligatory Assignment 1, to test my code during the making of this assignment.
 Therefore I have continued with the names I made in that database/assignment.
 However, I am unsure if this code will work with the file you are testing, and therefore I have uploaded my bysykkel.db file as well,
-to show you that my code works, even though I have not been able to make it work for general example filen, but only my special one.
+to show you that my code works, even if I have not been able to make it work for other example files.
+
+
+The solution to 1 and 2 can be found here in oblig2bruk.py (Task1alone.py and Task2alone.py is not completly updated with final code)
+Solution to 3 and 4 can be found in Task3alone.py and Task4alone.py
 """
 #%%
 
@@ -69,6 +73,10 @@ app_ui = ui.page_fluid(
             # 1c)
             ui.output_text("update_database_with_new_user")
         ),
+
+        # I had to do the following change in my database, in order for the ID_User to be updated as well, when creating a new user:
+        # USE Autoincrement instendig of UNIQUE, then IDs update autmatically, and change from INT to INTEGER, because autoincrement only works on INTEGER
+
 
         # Task 2: Database analysis
 
@@ -175,12 +183,12 @@ def server(input, output, session):
         return f"{input.add_email()} is {status_email}"
     
 
-        # 1c) Update your database design. Add email as an attribute to the User entity. 
-        """
-        This part only needs to be done once.
-        Therefore I did this part directly in the terminal by writing:
-        ALTER TABLE User ADD COLUMN Email_User;
-        """
+    # 1c) Update your database design. Add email as an attribute to the User entity. 
+    """
+    This part only needs to be done once.
+    Therefore I did this part directly in the terminal by writing:
+    ALTER TABLE User ADD COLUMN Email_User;
+    """
 
     # 1c) If you received valid input from the form, update the database with the new user.
     @render.text
@@ -209,10 +217,7 @@ def server(input, output, session):
 
     # Task 2: Database analysis
     # Make sure that the old tables and the following new ones are showing the updated view when the database changes.
-    """
-    To do this I added the relevant action buttons to the @reactive.event()
-    """
-
+    
     # Keep the output cards from oblig 1 that show users’ names, bike status overview and the subscription overview
    
     # Oblig 1(a): A table of the users’ names, sorted in alphabetical order.
@@ -253,7 +258,7 @@ def server(input, output, session):
     @reactive.event(input.search_user_submit_button)
     def users_filtered_table():
         query = f"""
-        SELECT ID_user AS user_id,
+        SELECT ID_User AS user_id,
         Name_User AS Name,
         Phone_Number_User AS "Phone Number"
         FROM User
@@ -269,7 +274,7 @@ def server(input, output, session):
     It suggested modifying the get_data() function to accept a second argument for parameters (params), 
     and to move the input.filter_users() to the return part. 
     Understanding: It is important to use placeholders (?) in queries to prevent users of the application to be able to write directly in you database, and change things. 
-    With the help of Chat.GTP I now know how to do this using parameterized queries.
+    With the help of ChatGTP I now know how to do this using parameterized queries.
     """
 
     # 2b) Query the bysykkel database and produce a table that shows how many trips have ended on each station. 

@@ -58,11 +58,7 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
 
     # Task 2:
-    # Make sure that the old tables and the following new ones are showing the updated view when the database changes.
-    """
-    To do this I added the relevant action buttons to the @reactive.event()
-    """
-
+    
     # Keep the output cards from oblig 1 that show users’ names, bike status overview and the subscription overview
    
     # Oblig 1(a): A table of the users’ names, sorted in alphabetical order.
